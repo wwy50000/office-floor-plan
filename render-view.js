@@ -28,7 +28,7 @@ function canvasTexture(width, height, draw, repeatX = 1, repeatY = 1) {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(repeatX, repeatY);
-  texture.anisotropy = 8;
+  texture.anisotropy = 2;
   return texture;
 }
 
@@ -40,7 +40,7 @@ function random(seed) {
   };
 }
 
-const marbleTexture = canvasTexture(1024, 1024, (ctx, width, height) => {
+const marbleTexture = canvasTexture(512, 512, (ctx, width, height) => {
   const rand = random(18);
   ctx.fillStyle = "#f8f4ed";
   ctx.fillRect(0, 0, width, height);
@@ -56,7 +56,7 @@ const marbleTexture = canvasTexture(1024, 1024, (ctx, width, height) => {
   }
 }, 5, 3);
 
-const carpetTexture = canvasTexture(1024, 512, (ctx, width, height) => {
+const carpetTexture = canvasTexture(512, 256, (ctx, width, height) => {
   ctx.fillStyle = "#eee9df";
   ctx.fillRect(0, 0, width, height);
   for (let y = 22; y < height; y += 34) {
@@ -69,7 +69,7 @@ const carpetTexture = canvasTexture(1024, 512, (ctx, width, height) => {
   }
 }, 2, 1);
 
-const officeCarpetTexture = canvasTexture(1024, 1024, (ctx, width, height) => {
+const officeCarpetTexture = canvasTexture(512, 512, (ctx, width, height) => {
   const rand = random(44);
   ctx.fillStyle = "#8e9292";
   ctx.fillRect(0, 0, width, height);
@@ -98,7 +98,7 @@ const officeCarpetTexture = canvasTexture(1024, 1024, (ctx, width, height) => {
   }
 }, 2.6, 2.6);
 
-const ceilingTileTexture = canvasTexture(512, 512, (ctx, width, height) => {
+const ceilingTileTexture = canvasTexture(256, 256, (ctx, width, height) => {
   ctx.fillStyle = "#f5f4f1";
   ctx.fillRect(0, 0, width, height);
   ctx.strokeStyle = "rgba(82, 82, 78, 0.22)";
@@ -124,7 +124,7 @@ const ceilingTileTexture = canvasTexture(512, 512, (ctx, width, height) => {
 }, 3, 3);
 
 function artTexture(base, accent) {
-  return canvasTexture(512, 512, (ctx, width, height) => {
+  return canvasTexture(256, 256, (ctx, width, height) => {
     ctx.fillStyle = "#f6f0e8";
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = base;
@@ -149,15 +149,14 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color("#f2f0eb");
 scene.fog = new THREE.Fog("#f2f0eb", 40, 72);
 
-const devicePixelRatio = window.devicePixelRatio || 1;
 const renderer = new THREE.WebGLRenderer({
-  antialias: devicePixelRatio <= 1.25,
+  antialias: false,
   alpha: false,
-  preserveDrawingBuffer: true,
+  preserveDrawingBuffer: false,
   powerPreference: "high-performance"
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
-renderer.shadowMap.enabled = true;
+renderer.setPixelRatio(1);
+renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -212,8 +211,8 @@ camera.lookAt(renderTargets.reception.target);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.copy(renderTargets.reception.target);
-controls.enableDamping = true;
-controls.dampingFactor = 0.08;
+controls.enableDamping = false;
+controls.dampingFactor = 0;
 controls.enablePan = false;
 controls.minDistance = 1.7;
 controls.maxDistance = 22;
@@ -233,13 +232,11 @@ const materials = {
   wall: mat("#fbf8f1", 0.78),
   innerWall: mat("#f2eee6", 0.74),
   featureWall: mat("#efe6d8", 0.62),
-  floor: new THREE.MeshPhysicalMaterial({
+  floor: new THREE.MeshStandardMaterial({
     color: "#f6f0e7",
     map: marbleTexture,
-    roughness: 0.28,
-    metalness: 0,
-    clearcoat: 0.22,
-    clearcoatRoughness: 0.36
+    roughness: 0.34,
+    metalness: 0
   }),
   corridorFloor: mat("#e1dfdb", 0.76),
   pantryFloor: mat("#e6e2d9", 0.72),
@@ -255,27 +252,21 @@ const materials = {
   }),
   whitePanel: mat("#ffffff", 0.55),
   warmPanel: mat("#d3bc9f", 0.58),
-  glass: new THREE.MeshPhysicalMaterial({
-    color: "#d7e3e6",
-    roughness: 0.04,
+  glass: new THREE.MeshStandardMaterial({
+    color: "#c7dbe0",
+    roughness: 0.18,
     metalness: 0,
-    transmission: 0.58,
     transparent: true,
-    opacity: 0.3,
-    thickness: 0.1,
-    ior: 1.45,
+    opacity: 0.34,
     side: THREE.DoubleSide,
     depthWrite: false
   }),
-  glassDoor: new THREE.MeshPhysicalMaterial({
-    color: "#d8e7ec",
-    roughness: 0.04,
+  glassDoor: new THREE.MeshStandardMaterial({
+    color: "#c8dfe5",
+    roughness: 0.18,
     metalness: 0,
-    transmission: 0.5,
     transparent: true,
     opacity: 0.38,
-    thickness: 0.1,
-    ior: 1.45,
     side: THREE.DoubleSide,
     depthWrite: false
   }),
@@ -317,7 +308,7 @@ function addBox(width, height, depth, x, y, z, material, parent = model, cast = 
   return mesh;
 }
 
-function addCylinder(radiusTop, radiusBottom, height, x, y, z, material, parent = model, segments = 24) {
+function addCylinder(radiusTop, radiusBottom, height, x, y, z, material, parent = model, segments = 16) {
   const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, segments), material);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
@@ -393,7 +384,7 @@ function addOfficeChair(x, z, rotation = 0, material = materials.chair) {
   const group = new THREE.Group();
   group.position.set(x, 0.04, z);
   group.rotation.y = rotation;
-  addCylinder(0.24, 0.27, 0.055, 0, 0.06, 0, materials.darkFrame, group, 18);
+  addCylinder(0.24, 0.27, 0.055, 0, 0.06, 0, materials.darkFrame, group, 12);
   addCylinder(0.035, 0.045, 0.4, 0, 0.28, 0, materials.darkFrame, group, 12);
   addBox(0.48, 0.1, 0.44, 0, 0.52, 0, material, group);
   addBox(0.48, 0.46, 0.075, 0, 0.78, 0.2, material, group);
@@ -573,7 +564,7 @@ function addPlant(x, z, scale = 1) {
   const group = new THREE.Group();
   group.position.set(x, 0.04, z);
   group.scale.setScalar(scale);
-  addCylinder(0.23, 0.18, 0.36, 0, 0.18, 0, materials.stone, group, 24);
+  addCylinder(0.23, 0.18, 0.36, 0, 0.18, 0, materials.stone, group, 14);
   addCylinder(0.035, 0.045, 0.9, 0, 0.68, 0, materials.darkWood, group, 10);
   for (let i = 0; i < 12; i += 1) {
     const angle = i * Math.PI * 2 / 12;
@@ -608,10 +599,7 @@ function addCeiling(x0, z0, x1, z1, style = "smooth") {
   const lightCount = Math.max(2, Math.round(width / 2.8));
   for (let i = 0; i < lightCount; i += 1) {
     const lx = x0 + width * (i + 0.5) / lightCount;
-    const lz = z0 + depth * 0.5;
-    const light = new THREE.PointLight("#fff3c9", 0.75, 5.2, 1.8);
-    light.position.set(lx, y - 0.26, lz);
-    scene.add(light);
+    addBox(0.09, 0.028, depth * 0.32, lx, y - 0.145, cz, materials.lightPanel, model, false, false);
   }
 }
 
@@ -658,9 +646,6 @@ function addSuspendedLight(x, z, length = 2.8, rotation = 0) {
   addBox(length, 0.08, 0.13, 0, 2.31, 0, materials.blackSlot, group, false, false);
   addBox(length * 0.92, 0.032, 0.1, 0, 2.25, 0, materials.lightPanel, group, false, false);
   model.add(group);
-  const light = new THREE.PointLight("#fff2c3", 1.2, 5.4, 1.7);
-  light.position.set(x, 2.12, z);
-  scene.add(light);
 }
 
 function addPlanter(x, z, width = 0.92, rotation = 0) {
@@ -678,24 +663,24 @@ function addPlanter(x, z, width = 0.92, rotation = 0) {
 
 function labelTexture(name, dimensions) {
   const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 196;
+  canvas.width = 384;
+  canvas.height = 148;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.strokeStyle = "rgba(98, 91, 82, 0.25)";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.roundRect(12, 12, 488, 172, 22);
+  ctx.roundRect(8, 8, 368, 132, 16);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#24221f";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = '600 44px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText(name, 256, 69);
+  ctx.font = '600 34px "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.fillText(name, 192, 52);
   ctx.fillStyle = "#6d675f";
-  ctx.font = '400 31px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText(dimensions, 256, 132);
+  ctx.font = '400 24px "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.fillText(dimensions, 192, 100);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
@@ -729,12 +714,9 @@ function addFeatureArt(x, z) {
     new THREE.Vector3(x - 0.18, 0.62, z + 0.055),
     new THREE.Vector3(x + 0.18, 0.88, z + 0.055)
   ]);
-  const neon = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.012, 8, false), materials.glow);
+  const neon = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.012, 6, false), materials.glow);
   neon.castShadow = false;
   model.add(neon);
-  const light = new THREE.PointLight("#ffe49b", 1.15, 5.2, 1.8);
-  light.position.set(x, 1.3, z + 0.6);
-  scene.add(light);
 }
 
 function addCeilingHints() {
@@ -743,9 +725,6 @@ function addCeilingHints() {
     [4.5, 13.95], [25.4, 8.55], [14.8, 8.55]
   ].forEach(([x, z]) => {
     addBox(0.72, 0.035, 0.05, x, 1.88, z, materials.glow, model, false, false);
-    const light = new THREE.PointLight("#fff0c4", 0.42, 5.5, 1.8);
-    light.position.set(x, 2.1, z + 0.2);
-    scene.add(light);
   });
 }
 
@@ -862,7 +841,7 @@ addCeiling(MEETING_X, AISLE_Z, W, H, "smooth");
 addSuspendedLight(14.35, 9.3, 3.2, 0);
 addSuspendedLight(25.45, 11.35, 4.6, 0);
 
-addCylinder(0.62, 0.62, 0.1, 11.15, 0.42, 10.0, materials.stone, model, 48);
+addCylinder(0.62, 0.62, 0.1, 11.15, 0.42, 10.0, materials.stone, model, 24);
 addCylinder(0.08, 0.08, 0.38, 11.15, 0.22, 10.0, materials.frame, model, 18);
 addBox(0.38, 0.06, 0.28, 10.96, 0.54, 9.86, materials.cognacFabric);
 addPlanter(12.55, 8.18, 1.1, 0);
@@ -894,7 +873,7 @@ scene.add(new THREE.HemisphereLight("#ffffff", "#aaa49a", 2.3));
 
 const sun = new THREE.DirectionalLight("#fff4df", 4.2);
 sun.position.set(-16, 32, 24);
-sun.castShadow = true;
+sun.castShadow = false;
 sun.shadow.mapSize.set(1024, 1024);
 sun.shadow.camera.left = -35;
 sun.shadow.camera.right = 35;
@@ -940,7 +919,7 @@ function moveCamera(view) {
   const startPosition = camera.position.clone();
   const startTarget = controls.target.clone();
   const startedAt = performance.now();
-  const duration = 520;
+  const duration = 360;
   setButtons(view);
 
   function step(now) {
@@ -969,14 +948,10 @@ viewButtons.forEach((button) => {
 });
 downloadButton.addEventListener("click", () => {
   renderScene();
-  renderer.domElement.toBlob((blob) => {
-    if (!blob) return;
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "office-render-view.png";
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-  }, "image/png");
+  const link = document.createElement("a");
+  link.href = renderer.domElement.toDataURL("image/png");
+  link.download = "office-render-view.png";
+  link.click();
 });
 
 new ResizeObserver(resize).observe(stage);
@@ -984,7 +959,7 @@ window.addEventListener("resize", resize);
 resize();
 
 function isPanelVisible() {
-  return !root.closest("[data-panel]")?.hidden;
+  return !document.hidden && !root.closest("[data-panel]")?.hidden;
 }
 
 function renderScene() {
@@ -1006,20 +981,20 @@ function animate(now) {
   }
 }
 
-function requestRender(duration = 240) {
+function requestRender(duration = 140) {
   renderUntil = Math.max(renderUntil, performance.now() + duration);
   if (!animationFrame && isPanelVisible()) {
     animationFrame = requestAnimationFrame(animate);
   }
 }
 
-controls.addEventListener("change", () => requestRender(300));
-controls.addEventListener("start", () => requestRender(900));
-controls.addEventListener("end", () => requestRender(520));
+controls.addEventListener("change", () => requestRender(120));
+controls.addEventListener("start", () => requestRender(420));
+controls.addEventListener("end", () => requestRender(220));
 window.addEventListener("floor-plan:viewchange", (event) => {
   if (event.detail?.view === "render") {
     resize();
-    requestRender(700);
+    requestRender(420);
   } else {
     if (animationFrame) {
       cancelAnimationFrame(animationFrame);
@@ -1032,6 +1007,17 @@ window.addEventListener("floor-plan:viewchange", (event) => {
   }
 });
 document.addEventListener("visibilitychange", () => {
-  if (isPanelVisible()) requestRender(520);
+  if (document.hidden) {
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    }
+    if (cameraAnimationFrame) {
+      cancelAnimationFrame(cameraAnimationFrame);
+      cameraAnimationFrame = 0;
+    }
+  } else if (isPanelVisible()) {
+    requestRender(260);
+  }
 });
-requestRender(700);
+requestRender(420);
