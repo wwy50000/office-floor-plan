@@ -149,14 +149,16 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color("#f2f0eb");
 scene.fog = new THREE.Fog("#f2f0eb", 40, 72);
 
+const devicePixelRatio = window.devicePixelRatio || 1;
 const renderer = new THREE.WebGLRenderer({
-  antialias: true,
+  antialias: devicePixelRatio <= 1.25,
   alpha: false,
-  preserveDrawingBuffer: true
+  preserveDrawingBuffer: true,
+  powerPreference: "high-performance"
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
@@ -893,7 +895,7 @@ scene.add(new THREE.HemisphereLight("#ffffff", "#aaa49a", 2.3));
 const sun = new THREE.DirectionalLight("#fff4df", 4.2);
 sun.position.set(-16, 32, 24);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(1024, 1024);
 sun.shadow.camera.left = -35;
 sun.shadow.camera.right = 35;
 sun.shadow.camera.top = 24;
@@ -907,12 +909,18 @@ const fill = new THREE.DirectionalLight("#dceeff", 1.2);
 fill.position.set(32, 12, -16);
 scene.add(fill);
 
+let animationFrame = 0;
+let cameraAnimationFrame = 0;
+let renderUntil = 0;
+let firstFrame = true;
+
 function resize() {
   const width = Math.max(stage.clientWidth, 320);
   const height = Math.max(stage.clientHeight, 420);
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+  requestRender(260);
 }
 
 function setButtons(active) {
@@ -924,30 +932,43 @@ function setButtons(active) {
 }
 
 function moveCamera(view) {
+  if (cameraAnimationFrame) {
+    cancelAnimationFrame(cameraAnimationFrame);
+    cameraAnimationFrame = 0;
+  }
   const destination = renderTargets[view] || renderTargets.reception;
   const startPosition = camera.position.clone();
   const startTarget = controls.target.clone();
   const startedAt = performance.now();
-  const duration = 720;
+  const duration = 520;
   setButtons(view);
 
   function step(now) {
+    if (!isPanelVisible()) {
+      cameraAnimationFrame = 0;
+      return;
+    }
     const t = Math.min((now - startedAt) / duration, 1);
     const eased = 1 - Math.pow(1 - t, 3);
     camera.position.lerpVectors(startPosition, destination.position, eased);
     controls.target.lerpVectors(startTarget, destination.target, eased);
     camera.lookAt(controls.target);
-    controls.update();
-    if (t < 1) requestAnimationFrame(step);
+    renderScene();
+    if (t < 1) {
+      cameraAnimationFrame = requestAnimationFrame(step);
+    } else {
+      cameraAnimationFrame = 0;
+      requestRender(180);
+    }
   }
-  requestAnimationFrame(step);
+  cameraAnimationFrame = requestAnimationFrame(step);
 }
 
 viewButtons.forEach((button) => {
   button.addEventListener("click", () => moveCamera(button.dataset.renderView));
 });
 downloadButton.addEventListener("click", () => {
-  renderer.render(scene, camera);
+  renderScene();
   renderer.domElement.toBlob((blob) => {
     if (!blob) return;
     const link = document.createElement("a");
@@ -962,15 +983,55 @@ new ResizeObserver(resize).observe(stage);
 window.addEventListener("resize", resize);
 resize();
 
-let firstFrame = true;
-function animate() {
-  requestAnimationFrame(animate);
+function isPanelVisible() {
+  return !root.closest("[data-panel]")?.hidden;
+}
+
+function renderScene() {
   controls.update();
   renderer.render(scene, camera);
   if (firstFrame) {
     firstFrame = false;
     window.__floorPlanRenderReady = true;
-    window.__floorPlanRender = { renderer, scene, camera, controls };
+    window.__floorPlanRender = { renderer, scene, camera, controls, requestRender };
   }
 }
-animate();
+
+function animate(now) {
+  animationFrame = 0;
+  if (!isPanelVisible()) return;
+  renderScene();
+  if (now < renderUntil) {
+    animationFrame = requestAnimationFrame(animate);
+  }
+}
+
+function requestRender(duration = 240) {
+  renderUntil = Math.max(renderUntil, performance.now() + duration);
+  if (!animationFrame && isPanelVisible()) {
+    animationFrame = requestAnimationFrame(animate);
+  }
+}
+
+controls.addEventListener("change", () => requestRender(300));
+controls.addEventListener("start", () => requestRender(900));
+controls.addEventListener("end", () => requestRender(520));
+window.addEventListener("floor-plan:viewchange", (event) => {
+  if (event.detail?.view === "render") {
+    resize();
+    requestRender(700);
+  } else {
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    }
+    if (cameraAnimationFrame) {
+      cancelAnimationFrame(cameraAnimationFrame);
+      cameraAnimationFrame = 0;
+    }
+  }
+});
+document.addEventListener("visibilitychange", () => {
+  if (isPanelVisible()) requestRender(520);
+});
+requestRender(700);
