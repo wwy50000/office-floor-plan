@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>办公室平面图</title>
+  <link rel="icon" href="data:,">
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <style>
     :root {
@@ -243,6 +244,10 @@
       <i data-lucide="box" aria-hidden="true"></i>
       <span>3D立体图</span>
     </button>
+    <button type="button" class="view-tab" id="tab-render" role="tab" aria-selected="false" aria-controls="view-render" data-view="render">
+      <i data-lucide="sparkles" aria-hidden="true"></i>
+      <span>3D效果图</span>
+    </button>
     <button type="button" class="view-tab" id="tab-2d" role="tab" aria-selected="false" aria-controls="view-2d" data-view="2d">
       <i data-lucide="map" aria-hidden="true"></i>
       <span>2D平面图</span>
@@ -269,6 +274,28 @@
   <p class="sr-only">9个房间按平面图从左到右、从上到下编号，并标注每个房间的长宽尺寸；7号房间左右各布置两张办公桌，中间保留通道。</p>
 </div>
 </section>
+<section class="view-panel" id="view-render" role="tabpanel" aria-labelledby="tab-render" data-panel="render" hidden>
+  <div id="floor-plan-render-20260722">
+    <div class="render-stage" role="img" aria-label="意式轻奢办公室前台、玻璃隔断和办公空间3D渲染效果图">
+      <div class="render-controls viz-row" aria-label="渲染视角">
+        <button type="button" class="btn btn-primary render-view-button" aria-pressed="true" data-render-view="reception">前台</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room1">1号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room2">2号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room3">3号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room4">4号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room5">5号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room6">6号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room7">7号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room8">8号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room9">9号房间</button>
+        <button type="button" class="btn btn-ghost render-download" aria-label="下载3D渲染效果图" data-tooltip="下载3D渲染效果图">
+          <i data-lucide="download" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="render-caption">意式轻奢 3D 渲染效果图</div>
+    </div>
+  </div>
+</section>
 <section class="view-panel" id="view-2d" role="tabpanel" aria-labelledby="tab-2d" data-panel="2d" hidden>
   <div class="plan-2d-stage">
     <a class="btn btn-ghost plan-2d-download" href="floor-plan.svg" download="office-floor-plan.svg" aria-label="下载二维平面图" data-tooltip="下载二维平面图">
@@ -285,14 +312,19 @@
     const panels = Array.from(document.querySelectorAll("[data-panel]"));
 
     function setView(view, updateHash = true) {
-      const selectedView = view === "2d" ? "2d" : "3d";
+      const selectedView = ["2d", "3d", "render"].includes(view) ? view : "3d";
       tabs.forEach((tab) => {
         tab.setAttribute("aria-selected", String(tab.dataset.view === selectedView));
       });
       panels.forEach((panel) => {
         panel.hidden = panel.dataset.panel !== selectedView;
       });
-      document.title = selectedView === "2d" ? "办公室平面图 | 2D" : "办公室平面图 | 3D";
+      const titleMap = {
+        "2d": "办公室平面图 | 2D",
+        "3d": "办公室平面图 | 3D",
+        "render": "办公室平面图 | 3D效果图"
+      };
+      document.title = titleMap[selectedView];
       if (updateHash) {
         history.replaceState(null, "", `#${selectedView}`);
       }
@@ -310,6 +342,63 @@
     }
   })();
 </script>
+
+<style>
+  #floor-plan-render-20260722 {
+    width: 100%;
+    height: 100%;
+  }
+
+  #floor-plan-render-20260722 .render-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, #f6f2eb 0%, #ebe6dc 100%);
+  }
+
+  #floor-plan-render-20260722 canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  #floor-plan-render-20260722 .render-controls {
+    position: absolute;
+    z-index: 2;
+    top: 0.75rem;
+    left: 0.75rem;
+    right: 0.75rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    max-width: calc(100% - 1.5rem);
+  }
+
+  #floor-plan-render-20260722 .render-caption {
+    position: absolute;
+    z-index: 2;
+    right: 0.85rem;
+    bottom: 0.7rem;
+    color: color-mix(in srgb, var(--muted-foreground), transparent 10%);
+    font-size: 0.82rem;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.65);
+  }
+
+  @media (max-width: 640px) {
+    #floor-plan-render-20260722 .render-controls {
+      right: 0.5rem;
+      left: 0.5rem;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+  }
+</style>
+
+<script type="module" src="render-view.js"></script>
 
 <style>
   #floor-plan-3d-20260721 {
