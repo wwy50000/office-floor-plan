@@ -839,13 +839,6 @@ addPlant(28.8, 13.8, 0.8);
   ["9号房间", "9.00 × 7.00m", 25.4, 11.3, 2.0]
 ].forEach(([name, dimensions, x, z, scale]) => addLabel(name, dimensions, x, z, scale));
 
-addCeiling(0, 0, W, TOP_H, "tile");
-addCeiling(0, TOP_H, W, AISLE_Z, "smooth");
-addCeiling(0, AISLE_Z, FINANCE_X, 12.82, "tile");
-addCeiling(0, 12.82, FINANCE_X, H, "smooth");
-addCeiling(FINANCE_X, AISLE_Z, MEETING_X, H, "smooth");
-addCeiling(MEETING_X, AISLE_Z, W, H, "smooth");
-
 addSuspendedLight(14.35, 9.3, 3.2, 0);
 addSuspendedLight(25.45, 11.35, 4.6, 0);
 
