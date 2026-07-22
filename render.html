@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>办公室平面图 | 3D效果图</title>
+  <link rel="icon" href="data:,">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --background: #f2f0eb;
+      --foreground: #24221f;
+      --border: #998b76;
+      --muted: #d7d4cf;
+      --muted-foreground: #67625b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-bar {
+      position: relative;
+      z-index: 10;
+      min-height: 58px;
+      padding: 0 0.85rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--border), transparent 55%);
+      background: color-mix(in srgb, var(--background), white 10%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex: 0 0 auto;
+    }
+
+    .app-brand {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 0.65rem;
+    }
+
+    .app-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .app-dimensions {
+      color: var(--muted-foreground);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    .view-switch {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px;
+      border: 1px solid color-mix(in srgb, var(--border), transparent 42%);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--muted), transparent 45%);
+    }
+
+    .view-tab {
+      min-height: 36px;
+      padding: 0 0.85rem;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--muted-foreground);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      font: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .view-tab[aria-current="page"] {
+      background: var(--foreground);
+      color: var(--background);
+    }
+
+    .render-workspace {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .viz-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .btn {
+      min-height: 36px;
+      padding: 0 0.8rem;
+      border: 1px solid color-mix(in srgb, var(--border), transparent 38%);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--background), transparent 10%);
+      color: var(--foreground);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      font: inherit;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-primary {
+      border-color: var(--foreground);
+      background: var(--foreground);
+      color: var(--background);
+    }
+
+    .btn-ghost {
+      width: 36px;
+      padding: 0;
+    }
+
+    #floor-plan-render-20260722,
+    #floor-plan-render-20260722 .render-stage {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+
+    #floor-plan-render-20260722 .render-stage {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, #f6f2eb 0%, #ebe6dc 100%);
+    }
+
+    #floor-plan-render-20260722 canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    #floor-plan-render-20260722 .render-controls {
+      position: absolute;
+      z-index: 2;
+      top: 0.75rem;
+      left: 0.75rem;
+      right: 0.75rem;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      max-width: calc(100% - 1.5rem);
+    }
+
+    #floor-plan-render-20260722 .render-caption {
+      position: absolute;
+      z-index: 2;
+      right: 0.85rem;
+      bottom: 0.7rem;
+      color: color-mix(in srgb, var(--muted-foreground), transparent 10%);
+      font-size: 0.82rem;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.65);
+    }
+
+    @media (max-width: 640px) {
+      .app-bar {
+        min-height: 54px;
+        padding: 0 0.5rem;
+        gap: 0.5rem;
+      }
+
+      .app-dimensions {
+        display: none;
+      }
+
+      .view-tab {
+        padding: 0 0.6rem;
+      }
+
+      #floor-plan-render-20260722 .render-controls {
+        right: 0.5rem;
+        left: 0.5rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .app-title {
+        display: none;
+      }
+
+      .view-switch {
+        width: 100%;
+      }
+
+      .view-tab {
+        flex: 1 1 0;
+      }
+    }
+  </style>
+</head>
+<body>
+<header class="app-bar">
+  <div class="app-brand">
+    <h1 class="app-title">办公室平面图</h1>
+    <span class="app-dimensions">29.90 m × 14.82 m</span>
+  </div>
+  <nav class="view-switch" aria-label="平面图视图">
+    <a class="view-tab" href="index.html#3d">
+      <i data-lucide="box" aria-hidden="true"></i>
+      <span>3D立体图</span>
+    </a>
+    <a class="view-tab" href="render.html" aria-current="page">
+      <i data-lucide="sparkles" aria-hidden="true"></i>
+      <span>3D效果图</span>
+    </a>
+    <a class="view-tab" href="index.html#2d">
+      <i data-lucide="map" aria-hidden="true"></i>
+      <span>2D平面图</span>
+    </a>
+  </nav>
+</header>
+<main class="render-workspace">
+  <div id="floor-plan-render-20260722">
+    <div class="render-stage" role="img" aria-label="意式轻奢办公室前台、玻璃隔断和办公空间3D渲染效果图">
+      <div class="render-controls viz-row" aria-label="渲染视角">
+        <button type="button" class="btn btn-primary render-view-button" aria-pressed="true" data-render-view="reception">前台</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room1">1号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room2">2号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room3">3号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room4">4号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room5">5号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room6">6号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room7">7号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room8">8号房间</button>
+        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room9">9号房间</button>
+        <button type="button" class="btn btn-ghost render-download" aria-label="下载3D渲染效果图" data-tooltip="下载3D渲染效果图">
+          <i data-lucide="download" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="render-caption">意式轻奢 3D 渲染效果图</div>
+    </div>
+  </div>
+</main>
+<script>
+  if (window.lucide) {
+    window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+  }
+</script>
+<script type="module" src="render-view.js"></script>
+</body>
+</html>
