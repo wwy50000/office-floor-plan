@@ -110,10 +110,12 @@
       gap: 0.4rem;
       font: inherit;
       cursor: pointer;
+      text-decoration: none;
       white-space: nowrap;
     }
 
-    .view-tab[aria-selected="true"] {
+    .view-tab[aria-selected="true"],
+    .view-tab[aria-current="page"] {
       background: var(--foreground);
       color: var(--background);
     }
@@ -244,10 +246,10 @@
       <i data-lucide="box" aria-hidden="true"></i>
       <span>3D立体图</span>
     </button>
-    <button type="button" class="view-tab" id="tab-render" role="tab" aria-selected="false" aria-controls="view-render" data-view="render">
+    <a class="view-tab" id="tab-render" role="tab" aria-selected="false" href="render.html">
       <i data-lucide="sparkles" aria-hidden="true"></i>
       <span>3D效果图</span>
-    </button>
+    </a>
     <button type="button" class="view-tab" id="tab-2d" role="tab" aria-selected="false" aria-controls="view-2d" data-view="2d">
       <i data-lucide="map" aria-hidden="true"></i>
       <span>2D平面图</span>
@@ -274,28 +276,6 @@
   <p class="sr-only">9个房间按平面图从左到右、从上到下编号，并标注每个房间的长宽尺寸；7号房间左右各布置两张办公桌，中间保留通道。</p>
 </div>
 </section>
-<section class="view-panel" id="view-render" role="tabpanel" aria-labelledby="tab-render" data-panel="render" hidden>
-  <div id="floor-plan-render-20260722">
-    <div class="render-stage" role="img" aria-label="意式轻奢办公室前台、玻璃隔断和办公空间3D渲染效果图">
-      <div class="render-controls viz-row" aria-label="渲染视角">
-        <button type="button" class="btn btn-primary render-view-button" aria-pressed="true" data-render-view="reception">前台</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room1">1号房间</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room2">2号房间</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room3">3号房间</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room4">4号房间</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room5">5号房间</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room6">6号房间</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room7">7号房间</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room8">8号房间</button>
-        <button type="button" class="btn render-view-button" aria-pressed="false" data-render-view="room9">9号房间</button>
-        <button type="button" class="btn btn-ghost render-download" aria-label="下载3D渲染效果图" data-tooltip="下载3D渲染效果图">
-          <i data-lucide="download" aria-hidden="true"></i>
-        </button>
-      </div>
-      <div class="render-caption">意式轻奢 3D 渲染效果图</div>
-    </div>
-  </div>
-</section>
 <section class="view-panel" id="view-2d" role="tabpanel" aria-labelledby="tab-2d" data-panel="2d" hidden>
   <div class="plan-2d-stage">
     <a class="btn btn-ghost plan-2d-download" href="floor-plan.svg" download="office-floor-plan.svg" aria-label="下载二维平面图" data-tooltip="下载二维平面图">
@@ -310,20 +290,13 @@
   (() => {
     const tabs = Array.from(document.querySelectorAll("[data-view]"));
     const panels = Array.from(document.querySelectorAll("[data-panel]"));
-    let renderViewModulePromise = null;
-
-    function ensureRenderView() {
-      if (!renderViewModulePromise) {
-        renderViewModulePromise = import("./render-view.js").catch((error) => {
-          renderViewModulePromise = null;
-          console.error("Failed to load 3D render view.", error);
-        });
-      }
-      return renderViewModulePromise;
-    }
 
     function setView(view, updateHash = true) {
-      const selectedView = ["2d", "3d", "render"].includes(view) ? view : "3d";
+      if (view === "render") {
+        window.location.replace("render.html");
+        return;
+      }
+      const selectedView = ["2d", "3d"].includes(view) ? view : "3d";
       tabs.forEach((tab) => {
         tab.setAttribute("aria-selected", String(tab.dataset.view === selectedView));
       });
@@ -332,15 +305,11 @@
       });
       const titleMap = {
         "2d": "办公室平面图 | 2D",
-        "3d": "办公室平面图 | 3D",
-        "render": "办公室平面图 | 3D效果图"
+        "3d": "办公室平面图 | 3D"
       };
       document.title = titleMap[selectedView];
       if (updateHash) {
         history.replaceState(null, "", `#${selectedView}`);
-      }
-      if (selectedView === "render") {
-        ensureRenderView();
       }
       window.dispatchEvent(new CustomEvent("floor-plan:viewchange", {
         detail: { view: selectedView }
@@ -359,61 +328,6 @@
     }
   })();
 </script>
-
-<style>
-  #floor-plan-render-20260722 {
-    width: 100%;
-    height: 100%;
-  }
-
-  #floor-plan-render-20260722 .render-stage {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    background:
-      linear-gradient(180deg, #f6f2eb 0%, #ebe6dc 100%);
-  }
-
-  #floor-plan-render-20260722 canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-  }
-
-  #floor-plan-render-20260722 .render-controls {
-    position: absolute;
-    z-index: 2;
-    top: 0.75rem;
-    left: 0.75rem;
-    right: 0.75rem;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    max-width: calc(100% - 1.5rem);
-  }
-
-  #floor-plan-render-20260722 .render-caption {
-    position: absolute;
-    z-index: 2;
-    right: 0.85rem;
-    bottom: 0.7rem;
-    color: color-mix(in srgb, var(--muted-foreground), transparent 10%);
-    font-size: 0.82rem;
-    pointer-events: none;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.65);
-  }
-
-  @media (max-width: 640px) {
-    #floor-plan-render-20260722 .render-controls {
-      right: 0.5rem;
-      left: 0.5rem;
-      flex-wrap: wrap;
-      align-items: flex-start;
-    }
-  }
-</style>
 
 <style>
   #floor-plan-3d-20260721 {
@@ -505,15 +419,14 @@
   scene.background = new THREE.Color(colors.background);
   scene.fog = new THREE.Fog(colors.background, 48, 88);
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
   const renderer = new THREE.WebGLRenderer({
-    antialias: devicePixelRatio <= 1.25,
+    antialias: false,
     alpha: false,
-    preserveDrawingBuffer: true,
+    preserveDrawingBuffer: false,
     powerPreference: "high-performance"
   });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
-  renderer.shadowMap.enabled = true;
+  renderer.setPixelRatio(1);
+  renderer.shadowMap.enabled = false;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -529,8 +442,8 @@
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.copy(target);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
+  controls.enableDamping = false;
+  controls.dampingFactor = 0;
   controls.enablePan = false;
   controls.minPolarAngle = 0.05;
   controls.maxPolarAngle = Math.PI * 0.47;
@@ -543,7 +456,7 @@
 
   const sun = new THREE.DirectionalLight("#fff4df", 4.2);
   sun.position.set(-18, 35, 20);
-  sun.castShadow = true;
+  sun.castShadow = false;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.left = -35;
   sun.shadow.camera.right = 35;
@@ -597,15 +510,12 @@
     colors.series1
   ].map((color) => standardMaterial(softened(color, 0.11), 0.78));
   const doorMaterial = standardMaterial(softened(colors.series5, 0.88), 0.42, 0.05);
-  const glassMaterial = new THREE.MeshPhysicalMaterial({
+  const glassMaterial = new THREE.MeshStandardMaterial({
     color: softened(colors.series5, 0.28),
-    roughness: 0.08,
+    roughness: 0.18,
     metalness: 0,
-    transmission: 0.68,
     transparent: true,
-    opacity: 0.3,
-    thickness: 0.12,
-    ior: 1.45,
+    opacity: 0.32,
     side: THREE.DoubleSide,
     depthWrite: false
   });
@@ -1221,14 +1131,10 @@
 
   downloadButton.addEventListener("click", () => {
     renderScene();
-    renderer.domElement.toBlob((blob) => {
-      if (!blob) return;
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "floor-plan-3d.png";
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    }, "image/png");
+    const link = document.createElement("a");
+    link.href = renderer.domElement.toDataURL("image/png");
+    link.download = "floor-plan-3d.png";
+    link.click();
   });
 
   const resizeObserver = new ResizeObserver(updateSize);
@@ -1236,7 +1142,7 @@
   updateSize();
 
   function isPanelVisible() {
-    return !root.closest("[data-panel]")?.hidden;
+    return !document.hidden && !root.closest("[data-panel]")?.hidden;
   }
 
   function renderScene() {
@@ -1258,16 +1164,16 @@
     }
   }
 
-  function requestRender(duration = 220) {
+  function requestRender(duration = 140) {
     renderUntil = Math.max(renderUntil, performance.now() + duration);
     if (!animationFrame && isPanelVisible()) {
       animationFrame = requestAnimationFrame(animate);
     }
   }
 
-  controls.addEventListener("change", () => requestRender(260));
-  controls.addEventListener("start", () => requestRender(900));
-  controls.addEventListener("end", () => requestRender(500));
+  controls.addEventListener("change", () => requestRender(120));
+  controls.addEventListener("start", () => requestRender(420));
+  controls.addEventListener("end", () => requestRender(220));
   window.addEventListener("floor-plan:viewchange", (event) => {
     if (event.detail?.view === "3d") {
       updateSize();
@@ -1284,9 +1190,20 @@
     }
   });
   document.addEventListener("visibilitychange", () => {
-    if (isPanelVisible()) requestRender(500);
+    if (document.hidden) {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+      }
+      if (cameraAnimationFrame) {
+        cancelAnimationFrame(cameraAnimationFrame);
+        cameraAnimationFrame = 0;
+      }
+    } else if (isPanelVisible()) {
+      requestRender(260);
+    }
   });
-  requestRender(600);
+  requestRender(420);
 </script>
 </body>
 </html>
