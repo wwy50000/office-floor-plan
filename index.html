@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>平面布置3D立体图</title>
+  <title>办公室平面图</title>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <style>
     :root {
@@ -29,6 +29,7 @@
     html,
     body {
       width: 100%;
+      height: 100%;
       min-height: 100%;
       margin: 0;
       overflow: hidden;
@@ -37,10 +38,122 @@
       font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
     html body #floor-plan-3d-20260721 .fp3d-stage {
-      height: 100vh;
+      height: 100%;
       min-height: 0;
       aspect-ratio: auto;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .app-bar {
+      position: relative;
+      z-index: 10;
+      min-height: 58px;
+      padding: 0 0.85rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--border), transparent 55%);
+      background: color-mix(in srgb, var(--background), white 10%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex: 0 0 auto;
+    }
+
+    .app-brand {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 0.65rem;
+    }
+
+    .app-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .app-dimensions {
+      color: var(--muted-foreground);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    .view-switch {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px;
+      border: 1px solid color-mix(in srgb, var(--border), transparent 42%);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--muted), transparent 45%);
+    }
+
+    .view-tab {
+      min-height: 36px;
+      padding: 0 0.85rem;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--muted-foreground);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      font: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .view-tab[aria-selected="true"] {
+      background: var(--foreground);
+      color: var(--background);
+    }
+
+    .plan-workspace {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .view-panel {
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .plan-2d-stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background: #fbfcfd;
+    }
+
+    .plan-2d-stage img {
+      display: block;
+      width: 100%;
+      min-width: 760px;
+      height: auto;
+      margin: auto;
+    }
+
+    .plan-2d-download {
+      position: sticky;
+      z-index: 3;
+      top: 0.75rem;
+      left: calc(100% - 3rem);
+      margin-bottom: -2.25rem;
     }
 
     .viz-row {
@@ -87,9 +200,57 @@
       white-space: nowrap;
       border: 0;
     }
+
+    @media (max-width: 640px) {
+      .app-bar {
+        min-height: 54px;
+        padding: 0 0.5rem;
+        gap: 0.5rem;
+      }
+
+      .app-dimensions {
+        display: none;
+      }
+
+      .view-tab {
+        padding: 0 0.6rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .app-title {
+        display: none;
+      }
+
+      .view-switch {
+        width: 100%;
+      }
+
+      .view-tab {
+        flex: 1 1 0;
+      }
+    }
   </style>
 </head>
 <body>
+<header class="app-bar">
+  <div class="app-brand">
+    <h1 class="app-title">办公室平面图</h1>
+    <span class="app-dimensions">29.90 m × 14.82 m</span>
+  </div>
+  <nav class="view-switch" role="tablist" aria-label="平面图视图">
+    <button type="button" class="view-tab" id="tab-3d" role="tab" aria-selected="true" aria-controls="view-3d" data-view="3d">
+      <i data-lucide="box" aria-hidden="true"></i>
+      <span>3D立体图</span>
+    </button>
+    <button type="button" class="view-tab" id="tab-2d" role="tab" aria-selected="false" aria-controls="view-2d" data-view="2d">
+      <i data-lucide="map" aria-hidden="true"></i>
+      <span>2D平面图</span>
+    </button>
+  </nav>
+</header>
+<main class="plan-workspace">
+<section class="view-panel" id="view-3d" role="tabpanel" aria-labelledby="tab-3d" data-panel="3d">
 <div id="floor-plan-3d-20260721">
   <div class="fp3d-stage" role="img" aria-label="29.90米乘14.82米平面布置三维立体图">
     <div class="fp3d-controls viz-row" aria-label="视角控制">
@@ -107,17 +268,61 @@
   </div>
   <p class="sr-only">9个房间按平面图从左到右、从上到下编号，并标注每个房间的长宽尺寸；7号房间左右各布置两张办公桌，中间保留通道。</p>
 </div>
+</section>
+<section class="view-panel" id="view-2d" role="tabpanel" aria-labelledby="tab-2d" data-panel="2d" hidden>
+  <div class="plan-2d-stage">
+    <a class="btn btn-ghost plan-2d-download" href="floor-plan.svg" download="office-floor-plan.svg" aria-label="下载二维平面图" data-tooltip="下载二维平面图">
+      <i data-lucide="download" aria-hidden="true"></i>
+    </a>
+    <img src="floor-plan.svg" alt="长29.90米、宽14.82米的九房间平面布置图，每个房间均标注长宽尺寸">
+  </div>
+</section>
+</main>
+
+<script>
+  (() => {
+    const tabs = Array.from(document.querySelectorAll("[data-view]"));
+    const panels = Array.from(document.querySelectorAll("[data-panel]"));
+
+    function setView(view, updateHash = true) {
+      const selectedView = view === "2d" ? "2d" : "3d";
+      tabs.forEach((tab) => {
+        tab.setAttribute("aria-selected", String(tab.dataset.view === selectedView));
+      });
+      panels.forEach((panel) => {
+        panel.hidden = panel.dataset.panel !== selectedView;
+      });
+      document.title = selectedView === "2d" ? "办公室平面图 | 2D" : "办公室平面图 | 3D";
+      if (updateHash) {
+        history.replaceState(null, "", `#${selectedView}`);
+      }
+      requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => setView(tab.dataset.view));
+    });
+    window.addEventListener("hashchange", () => setView(location.hash.slice(1), false));
+    setView(location.hash.slice(1), false);
+
+    if (window.lucide) {
+      window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+    }
+  })();
+</script>
 
 <style>
   #floor-plan-3d-20260721 {
     width: 100%;
+    height: 100%;
   }
 
   #floor-plan-3d-20260721 .fp3d-stage {
     position: relative;
     width: 100%;
-    min-height: 430px;
-    aspect-ratio: 16 / 10;
+    height: 100%;
+    min-height: 0;
+    aspect-ratio: auto;
     overflow: hidden;
     background: var(--background);
   }
@@ -146,11 +351,6 @@
   }
 
   @media (max-width: 480px) {
-    #floor-plan-3d-20260721 .fp3d-stage {
-      min-height: 400px;
-      aspect-ratio: 4 / 5;
-    }
-
     #floor-plan-3d-20260721 .fp3d-controls {
       right: 0.5rem;
       left: 0.5rem;
