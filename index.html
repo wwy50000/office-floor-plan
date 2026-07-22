@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>平面布置3D立体图</title>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --background: #f2f0eb;
+      --foreground: #24221f;
+      --card: #f6f1e8;
+      --border: #998b76;
+      --muted: #d7d4cf;
+      --muted-foreground: #67625b;
+      --viz-series-1: #5e7467;
+      --viz-series-2: #b69763;
+      --viz-series-3: #657078;
+      --viz-series-4: #9b6b5e;
+      --viz-series-5: #6d4935;
+      --viz-series-6: #6a6763;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    html body #floor-plan-3d-20260721 .fp3d-stage {
+      height: 100vh;
+      min-height: 0;
+      aspect-ratio: auto;
+    }
+
+    .viz-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .btn {
+      min-height: 36px;
+      padding: 0 0.8rem;
+      border: 1px solid color-mix(in srgb, var(--border), transparent 38%);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--background), transparent 10%);
+      color: var(--foreground);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      font: inherit;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-primary {
+      border-color: var(--foreground);
+      background: var(--foreground);
+      color: var(--background);
+    }
+
+    .btn-ghost {
+      width: 36px;
+      padding: 0;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+<div id="floor-plan-3d-20260721">
+  <div class="fp3d-stage" role="img" aria-label="29.90米乘14.82米平面布置三维立体图">
+    <div class="fp3d-controls viz-row" aria-label="视角控制">
+      <button type="button" class="btn btn-primary fp3d-view-iso" aria-pressed="true">3D</button>
+      <button type="button" class="btn fp3d-view-top" aria-pressed="false">俯视
+      </button>
+      <button type="button" class="btn btn-ghost fp3d-reset" aria-label="复位视角" data-tooltip="复位视角">
+        <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+      </button>
+      <button type="button" class="btn btn-ghost fp3d-download" aria-label="下载三维立体图" data-tooltip="下载图片">
+        <i data-lucide="download" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="fp3d-dimensions text-small">29.90 m × 14.82 m</div>
+  </div>
+  <p class="sr-only">9个房间按平面图从左到右、从上到下编号，并标注每个房间的长宽尺寸；7号房间左右各布置两张办公桌，中间保留通道。</p>
+</div>
+
+<style>
+  #floor-plan-3d-20260721 {
+    width: 100%;
+  }
+
+  #floor-plan-3d-20260721 .fp3d-stage {
+    position: relative;
+    width: 100%;
+    min-height: 430px;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--background);
+  }
+
+  #floor-plan-3d-20260721 canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  #floor-plan-3d-20260721 .fp3d-controls {
+    position: absolute;
+    z-index: 2;
+    top: 0.75rem;
+    left: 0.75rem;
+  }
+
+  #floor-plan-3d-20260721 .fp3d-dimensions {
+    position: absolute;
+    z-index: 2;
+    right: 0.85rem;
+    bottom: 0.7rem;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  @media (max-width: 480px) {
+    #floor-plan-3d-20260721 .fp3d-stage {
+      min-height: 400px;
+      aspect-ratio: 4 / 5;
+    }
+
+    #floor-plan-3d-20260721 .fp3d-controls {
+      right: 0.5rem;
+      left: 0.5rem;
+    }
+  }
+</style>
+
+<script type="module">
+  import * as THREE from "https://esm.sh/three@0.180.0";
+  import { OrbitControls } from "https://esm.sh/three@0.180.0/examples/jsm/controls/OrbitControls.js";
+
+  const root = document.getElementById("floor-plan-3d-20260721");
+  const stage = root.querySelector(".fp3d-stage");
+  const isoButton = root.querySelector(".fp3d-view-iso");
+  const topButton = root.querySelector(".fp3d-view-top");
+  const resetButton = root.querySelector(".fp3d-reset");
+  const downloadButton = root.querySelector(".fp3d-download");
+  if (window.lucide) {
+    window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+  }
+
+  function resolvedColor(variable, fallback) {
+    const swatch = document.createElement("span");
+    swatch.style.color = `var(${variable}, ${fallback})`;
+    swatch.style.display = "none";
+    root.appendChild(swatch);
+    const color = getComputedStyle(swatch).color || fallback;
+    swatch.remove();
+    return color;
+  }
+
+  const colors = {
+    background: resolvedColor("--background", "#f4f5f3"),
+    foreground: resolvedColor("--foreground", "#202522"),
+    wall: resolvedColor("--card", "#f7f4ed"),
+    wallEdge: resolvedColor("--border", "#8f9691"),
+    muted: resolvedColor("--muted", "#dce1dd"),
+    mutedForeground: resolvedColor("--muted-foreground", "#67625b"),
+    series1: resolvedColor("--viz-series-1", "#4f8a78"),
+    series2: resolvedColor("--viz-series-2", "#d49b4d"),
+    series3: resolvedColor("--viz-series-3", "#6c83a5"),
+    series4: resolvedColor("--viz-series-4", "#b87975"),
+    series5: resolvedColor("--viz-series-5", "#8b6b4a"),
+    series6: resolvedColor("--viz-series-6", "#7a728e")
+  };
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(colors.background);
+  scene.fog = new THREE.Fog(colors.background, 48, 88);
+
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: false,
+    preserveDrawingBuffer: true
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.02;
+  stage.prepend(renderer.domElement);
+
+  const camera = new THREE.OrthographicCamera(-20, 20, 13, -13, 0.1, 140);
+  const target = new THREE.Vector3(14.95, 0.4, 7.41);
+  const isoPosition = new THREE.Vector3(43, 30, 35);
+  const topPosition = new THREE.Vector3(14.95, 48, 7.42);
+  camera.position.copy(isoPosition);
+  camera.lookAt(target);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.copy(target);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.enablePan = false;
+  controls.minPolarAngle = 0.05;
+  controls.maxPolarAngle = Math.PI * 0.47;
+  controls.minZoom = 0.55;
+  controls.maxZoom = 3.6;
+  controls.update();
+
+  const hemi = new THREE.HemisphereLight("#ffffff", "#767b76", 2.1);
+  scene.add(hemi);
+
+  const sun = new THREE.DirectionalLight("#fff4df", 4.2);
+  sun.position.set(-18, 35, 20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -35;
+  sun.shadow.camera.right = 35;
+  sun.shadow.camera.top = 25;
+  sun.shadow.camera.bottom = -25;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 80;
+  sun.shadow.bias = -0.0002;
+  scene.add(sun);
+
+  const fill = new THREE.DirectionalLight("#dcecff", 1.35);
+  fill.position.set(34, 18, -18);
+  scene.add(fill);
+
+  const W = 29.9;
+  const H = 14.82;
+  const TOP_H = 6.22;
+  const AISLE_Z = 7.82;
+  const FINANCE_X = 9.0;
+  const MEETING_X = 20.9;
+  const WALL_H = 1.72;
+  const WALL_T = 0.18;
+  const FLOOR_T = 0.08;
+  const DOOR_H = 1.48;
+
+  const model = new THREE.Group();
+  scene.add(model);
+
+  function standardMaterial(color, roughness = 0.82, metalness = 0) {
+    return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  }
+
+  function softened(color, amount = 0.18) {
+    return new THREE.Color(colors.background).lerp(new THREE.Color(color), amount);
+  }
+
+  const wallMaterial = standardMaterial(softened(colors.series2, 0.08), 0.72);
+  const wallEdgeMaterial = new THREE.LineBasicMaterial({ color: colors.wallEdge, transparent: true, opacity: 0.68 });
+  const baseMaterial = standardMaterial(softened(colors.foreground, 0.16), 0.9);
+  const neutralFloorMaterial = standardMaterial(softened(colors.wall, 0.72), 0.62);
+  const corridorMaterial = standardMaterial(softened(colors.series3, 0.12), 0.72);
+  const roomMaterials = [
+    colors.series1,
+    colors.series2,
+    colors.series3,
+    colors.series4,
+    colors.series6,
+    colors.series2,
+    colors.series4,
+    colors.series5,
+    colors.series1
+  ].map((color) => standardMaterial(softened(color, 0.11), 0.78));
+  const doorMaterial = standardMaterial(softened(colors.series5, 0.88), 0.42, 0.05);
+  const glassMaterial = new THREE.MeshPhysicalMaterial({
+    color: softened(colors.series5, 0.28),
+    roughness: 0.08,
+    metalness: 0,
+    transmission: 0.68,
+    transparent: true,
+    opacity: 0.3,
+    thickness: 0.12,
+    ior: 1.45,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const glassDoorMaterial = glassMaterial.clone();
+  glassDoorMaterial.opacity = 0.42;
+  const glassFrameMaterial = standardMaterial(softened(colors.series2, 0.78), 0.26, 0.58);
+  const columnMaterial = standardMaterial(softened(colors.series2, 0.2), 0.58, 0.08);
+  const deskMaterial = standardMaterial(softened(colors.series5, 0.82), 0.42, 0.06);
+  const stoneTopMaterial = standardMaterial(softened(colors.wall, 0.9), 0.24, 0.02);
+  const deskFrameMaterial = standardMaterial(softened(colors.series2, 0.8), 0.28, 0.62);
+  const chairMaterial = standardMaterial(softened(colors.series1, 0.5), 0.72);
+  const chairFrameMaterial = standardMaterial(softened(colors.foreground, 0.72), 0.34, 0.32);
+  const deviceMaterial = standardMaterial(softened(colors.foreground, 0.84), 0.3, 0.12);
+  const cabinetMaterial = standardMaterial(softened(colors.series5, 0.58), 0.56, 0.04);
+  const rugMaterial = standardMaterial(softened(colors.series6, 0.34), 0.96);
+  const featureWallMaterial = standardMaterial(softened(colors.series2, 0.18), 0.52, 0.02);
+  const featurePanelMaterial = standardMaterial(softened(colors.series5, 0.68), 0.44, 0.04);
+
+  function addBox(width, height, depth, x, y, z, material, castShadow = true, receiveShadow = true) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = castShadow;
+    mesh.receiveShadow = receiveShadow;
+    model.add(mesh);
+    return mesh;
+  }
+
+  function addFloor(x0, z0, x1, z1, material) {
+    return addBox(x1 - x0 - 0.05, FLOOR_T, z1 - z0 - 0.05, (x0 + x1) / 2, 0.01, (z0 + z1) / 2, material, false, true);
+  }
+
+  function addWall(x0, z0, x1, z1, height = WALL_H, material = wallMaterial, thickness = WALL_T) {
+    const dx = x1 - x0;
+    const dz = z1 - z0;
+    const length = Math.hypot(dx, dz);
+    if (length < 0.02) return null;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, height, thickness), material);
+    mesh.position.set((x0 + x1) / 2, height / 2 + 0.08, (z0 + z1) / 2);
+    mesh.rotation.y = -Math.atan2(dz, dx);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 28), wallEdgeMaterial);
+    mesh.add(edges);
+    model.add(mesh);
+    return mesh;
+  }
+
+  function addGlassWall(x0, z0, x1, z1, height = WALL_H) {
+    const dx = x1 - x0;
+    const dz = z1 - z0;
+    const length = Math.hypot(dx, dz);
+    if (length < 0.02) return null;
+    const group = new THREE.Group();
+    group.position.set((x0 + x1) / 2, 0.08, (z0 + z1) / 2);
+    group.rotation.y = -Math.atan2(dz, dx);
+
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(length, height - 0.18, 0.07), glassMaterial);
+    pane.position.y = height / 2;
+    pane.castShadow = false;
+    pane.receiveShadow = true;
+    pane.renderOrder = 2;
+    group.add(pane);
+
+    const bottomRail = new THREE.Mesh(new THREE.BoxGeometry(length + 0.05, 0.1, 0.11), glassFrameMaterial);
+    bottomRail.position.y = 0.05;
+    bottomRail.castShadow = true;
+    group.add(bottomRail);
+
+    const topRail = bottomRail.clone();
+    topRail.position.y = height - 0.05;
+    group.add(topRail);
+
+    const panelCount = Math.max(1, Math.ceil(length / 2.4));
+    for (let i = 0; i <= panelCount; i += 1) {
+      const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.065, height, 0.11), glassFrameMaterial);
+      mullion.position.set(-length / 2 + length * i / panelCount, height / 2, 0);
+      mullion.castShadow = true;
+      group.add(mullion);
+    }
+
+    model.add(group);
+    return group;
+  }
+
+  function addDoorX(hingeX, z, width, spanSign, angleSign, material = doorMaterial) {
+    const pivot = new THREE.Group();
+    pivot.position.set(hingeX, 0.08, z);
+    pivot.rotation.y = angleSign * THREE.MathUtils.degToRad(57);
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(width, DOOR_H, 0.055), material);
+    leaf.position.set(spanSign * width / 2, DOOR_H / 2, 0);
+    leaf.castShadow = material !== glassDoorMaterial;
+    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(leaf.geometry), wallEdgeMaterial);
+    leaf.add(edge);
+    pivot.add(leaf);
+    model.add(pivot);
+    return pivot;
+  }
+
+  function addDoorZ(x, hingeZ, width, spanSign, angleSign) {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, 0.08, hingeZ);
+    pivot.rotation.y = angleSign * THREE.MathUtils.degToRad(57);
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.055, DOOR_H, width), doorMaterial);
+    leaf.position.set(0, DOOR_H / 2, spanSign * width / 2);
+    leaf.castShadow = true;
+    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(leaf.geometry), wallEdgeMaterial);
+    leaf.add(edge);
+    pivot.add(leaf);
+    model.add(pivot);
+    return pivot;
+  }
+
+  function furnitureMesh(group, geometry, material, x, y, z, castShadow = true) {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = castShadow;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    return mesh;
+  }
+
+  function localOffset(localX, localZ, rotation) {
+    return {
+      x: localX * Math.cos(rotation) + localZ * Math.sin(rotation),
+      z: -localX * Math.sin(rotation) + localZ * Math.cos(rotation)
+    };
+  }
+
+  function addOfficeChair(x, z, rotation = 0) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    furnitureMesh(group, new THREE.CylinderGeometry(0.25, 0.29, 0.055, 8), chairFrameMaterial, 0, 0.055, 0);
+    furnitureMesh(group, new THREE.CylinderGeometry(0.035, 0.05, 0.42, 10), chairFrameMaterial, 0, 0.28, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(0.48, 0.09, 0.46), chairMaterial, 0, 0.52, 0);
+    const back = furnitureMesh(group, new THREE.BoxGeometry(0.48, 0.46, 0.07), chairMaterial, 0, 0.77, 0.21);
+    back.rotation.x = -0.08;
+    [-0.21, 0.21].forEach((armX) => {
+      furnitureMesh(group, new THREE.BoxGeometry(0.035, 0.22, 0.035), chairFrameMaterial, armX, 0.64, 0);
+      furnitureMesh(group, new THREE.BoxGeometry(0.21, 0.035, 0.04), chairFrameMaterial, armX, 0.74, -0.05);
+    });
+    model.add(group);
+    return group;
+  }
+
+  function addDesk(x, z, rotation = 0, width = 1.5, depth = 0.72, monitor = true) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    furnitureMesh(group, new THREE.BoxGeometry(width, 0.09, depth), deskMaterial, 0, 0.76, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 0.96, 0.035, depth * 0.92), stoneTopMaterial, 0, 0.825, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 0.72, 0.018, 0.025), glassFrameMaterial, 0, 0.85, depth / 2 - 0.035, false);
+    [-1, 1].forEach((sideX) => {
+      [-1, 1].forEach((sideZ) => {
+        furnitureMesh(
+          group,
+          new THREE.BoxGeometry(0.055, 0.72, 0.055),
+          deskFrameMaterial,
+          sideX * (width / 2 - 0.09),
+          0.38,
+          sideZ * (depth / 2 - 0.09)
+        );
+      });
+    });
+    furnitureMesh(group, new THREE.BoxGeometry(0.58, 0.025, 0.2), deviceMaterial, 0, 0.865, 0.1, false);
+    if (monitor) {
+      furnitureMesh(group, new THREE.CylinderGeometry(0.035, 0.045, 0.23, 10), deskFrameMaterial, 0, 0.99, -0.15);
+      const screen = furnitureMesh(group, new THREE.BoxGeometry(0.58, 0.36, 0.055), deviceMaterial, 0, 1.19, -0.16);
+      screen.rotation.x = -0.08;
+    }
+    model.add(group);
+    return group;
+  }
+
+  function addDeskSet(x, z, rotation = 0, width = 1.5, depth = 0.72, visitor = false) {
+    addDesk(x, z, rotation, width, depth, true);
+    const staff = localOffset(0, depth / 2 + 0.42, rotation);
+    addOfficeChair(x + staff.x, z + staff.z, rotation);
+    if (visitor) {
+      const guest = localOffset(0, -(depth / 2 + 0.42), rotation);
+      addOfficeChair(x + guest.x, z + guest.z, rotation + Math.PI);
+    }
+  }
+
+  function addMeetingTable(x, z, width, depth, chairsPerLong = 3, rotation = 0, endChairs = true) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    furnitureMesh(group, new THREE.BoxGeometry(width, 0.11, depth), deskMaterial, 0, 0.76, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 0.97, 0.04, depth * 0.92), stoneTopMaterial, 0, 0.835, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 0.72, 0.02, 0.03), glassFrameMaterial, 0, 0.865, depth / 2 - 0.04, false);
+    [-1, 1].forEach((sideX) => {
+      [-1, 1].forEach((sideZ) => {
+        furnitureMesh(
+          group,
+          new THREE.BoxGeometry(0.08, 0.7, 0.08),
+          deskFrameMaterial,
+          sideX * (width / 2 - 0.22),
+          0.37,
+          sideZ * (depth / 2 - 0.18)
+        );
+      });
+    });
+    model.add(group);
+
+    for (let i = 0; i < chairsPerLong; i += 1) {
+      const localX = chairsPerLong === 1 ? 0 : -width * 0.34 + i * (width * 0.68 / (chairsPerLong - 1));
+      const south = localOffset(localX, depth / 2 + 0.48, rotation);
+      const north = localOffset(localX, -(depth / 2 + 0.48), rotation);
+      addOfficeChair(x + south.x, z + south.z, rotation);
+      addOfficeChair(x + north.x, z + north.z, rotation + Math.PI);
+    }
+    if (endChairs) {
+      const east = localOffset(width / 2 + 0.48, 0, rotation);
+      const west = localOffset(-(width / 2 + 0.48), 0, rotation);
+      addOfficeChair(x + east.x, z + east.z, rotation + Math.PI / 2);
+      addOfficeChair(x + west.x, z + west.z, rotation - Math.PI / 2);
+    }
+  }
+
+  function addAreaRug(x, z, width, depth, rotation = 0) {
+    const rug = addBox(width, 0.025, depth, x, 0.075, z, rugMaterial, false, true);
+    rug.rotation.y = rotation;
+    return rug;
+  }
+
+  function addReceptionDesk(x, z, width = 3.0, rotation = 0) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    const depth = 0.78;
+
+    furnitureMesh(group, new THREE.BoxGeometry(width, 0.78, depth), cabinetMaterial, 0, 0.46, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 0.88, 0.52, 0.035), featurePanelMaterial, 0, 0.5, depth / 2 + 0.02);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 1.04, 0.075, depth * 1.05), stoneTopMaterial, 0, 0.9, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 0.86, 0.045, depth * 0.9), deskFrameMaterial, 0, 0.08, 0);
+    [-0.32, 0, 0.32].forEach((ratio) => {
+      furnitureMesh(group, new THREE.BoxGeometry(0.024, 0.46, 0.05), deskFrameMaterial, width * ratio, 0.51, depth / 2 + 0.045, false);
+    });
+
+    furnitureMesh(group, new THREE.BoxGeometry(0.62, 0.025, 0.2), deviceMaterial, 0, 0.965, 0.08, false);
+    furnitureMesh(group, new THREE.CylinderGeometry(0.035, 0.045, 0.23, 10), deskFrameMaterial, 0, 1.08, -0.14);
+    const screen = furnitureMesh(group, new THREE.BoxGeometry(0.62, 0.38, 0.055), deviceMaterial, 0, 1.28, -0.15);
+    screen.rotation.x = -0.08;
+
+    model.add(group);
+    const chairOffset = localOffset(0, -(depth / 2 + 0.5), rotation);
+    addOfficeChair(x + chairOffset.x, z + chairOffset.z, rotation + Math.PI);
+    return group;
+  }
+
+  function addSofa(x, z, width = 2.4, rotation = 0) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    const depth = 0.84;
+
+    furnitureMesh(group, new THREE.BoxGeometry(width, 0.24, depth), chairFrameMaterial, 0, 0.2, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 0.82, 0.2, depth * 0.7), chairMaterial, 0, 0.4, -0.04);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 0.84, 0.62, 0.18), chairMaterial, 0, 0.7, depth / 2 - 0.08);
+    [-1, 1].forEach((side) => {
+      furnitureMesh(group, new THREE.BoxGeometry(0.2, 0.48, depth * 0.92), chairMaterial, side * (width / 2 - 0.1), 0.5, 0);
+      furnitureMesh(group, new THREE.CylinderGeometry(0.035, 0.035, 0.16, 10), deskFrameMaterial, side * (width / 2 - 0.15), 0.08, depth * 0.28);
+      furnitureMesh(group, new THREE.CylinderGeometry(0.035, 0.035, 0.16, 10), deskFrameMaterial, side * (width / 2 - 0.15), 0.08, -depth * 0.28);
+    });
+    furnitureMesh(group, new THREE.BoxGeometry(0.035, 0.43, depth * 0.78), deskFrameMaterial, 0, 0.47, depth / 2 - 0.18, false);
+
+    model.add(group);
+    return group;
+  }
+
+  function addBreakroomCounter(x, z, width = 3.5) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    const depth = 0.52;
+
+    furnitureMesh(group, new THREE.BoxGeometry(width, 0.78, depth), cabinetMaterial, 0, 0.44, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(width * 1.02, 0.07, depth * 1.06), stoneTopMaterial, 0, 0.86, -0.01);
+    furnitureMesh(group, new THREE.BoxGeometry(width, 0.48, 0.045), featurePanelMaterial, 0, 1.14, depth / 2 + 0.02, false);
+    [-0.33, 0, 0.33].forEach((ratio) => {
+      furnitureMesh(group, new THREE.BoxGeometry(0.025, 0.68, 0.025), deskFrameMaterial, width * ratio, 0.44, -depth / 2 - 0.018, false);
+    });
+    [-0.25, 0.25].forEach((ratio) => {
+      furnitureMesh(group, new THREE.BoxGeometry(width * 0.18, 0.025, 0.035), deskFrameMaterial, width * ratio, 0.55, -depth / 2 - 0.035, false);
+    });
+
+    furnitureMesh(group, new THREE.BoxGeometry(0.76, 0.045, 0.36), deviceMaterial, -0.82, 0.91, -0.02, false);
+    furnitureMesh(group, new THREE.BoxGeometry(0.58, 0.025, 0.24), chairFrameMaterial, -0.82, 0.927, -0.02, false);
+    furnitureMesh(group, new THREE.CylinderGeometry(0.025, 0.03, 0.34, 10), deskFrameMaterial, -0.82, 1.1, 0.16);
+    const faucet = furnitureMesh(group, new THREE.CylinderGeometry(0.022, 0.022, 0.24, 10), deskFrameMaterial, -0.82, 1.25, 0.05);
+    faucet.rotation.x = Math.PI / 2;
+
+    furnitureMesh(group, new THREE.BoxGeometry(0.66, 0.42, 0.4), deviceMaterial, 0.95, 1.12, -0.02);
+    furnitureMesh(group, new THREE.BoxGeometry(0.49, 0.27, 0.025), glassMaterial, 0.89, 1.12, -0.232, false);
+    furnitureMesh(group, new THREE.BoxGeometry(0.08, 0.27, 0.025), deskFrameMaterial, 1.23, 1.12, -0.235, false);
+
+    furnitureMesh(group, new THREE.BoxGeometry(1.25, 0.48, 0.3), cabinetMaterial, -0.08, 1.46, 0.14);
+    furnitureMesh(group, new THREE.BoxGeometry(0.025, 0.4, 0.315), deskFrameMaterial, -0.08, 1.46, 0.14, false);
+    [-0.28, 0.28].forEach((offset) => {
+      furnitureMesh(group, new THREE.BoxGeometry(0.16, 0.025, 0.035), deskFrameMaterial, -0.08 + offset, 1.43, -0.025, false);
+    });
+
+    model.add(group);
+    return group;
+  }
+
+  function addFridge(x, z, rotation = 0) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    furnitureMesh(group, new THREE.BoxGeometry(0.74, 1.7, 0.62), deviceMaterial, 0, 0.85, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(0.68, 1.08, 0.035), stoneTopMaterial, 0, 1.12, -0.325, false);
+    furnitureMesh(group, new THREE.BoxGeometry(0.68, 0.5, 0.035), cabinetMaterial, 0, 0.32, -0.325, false);
+    furnitureMesh(group, new THREE.BoxGeometry(0.035, 0.46, 0.035), deskFrameMaterial, 0.25, 1.1, -0.35, false);
+    furnitureMesh(group, new THREE.BoxGeometry(0.035, 0.22, 0.035), deskFrameMaterial, 0.25, 0.43, -0.35, false);
+    model.add(group);
+    return group;
+  }
+
+  function addLoungeChair(x, z, rotation = 0) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    furnitureMesh(group, new THREE.BoxGeometry(0.58, 0.18, 0.5), chairMaterial, 0, 0.38, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(0.58, 0.48, 0.12), chairMaterial, 0, 0.66, 0.22);
+    [-1, 1].forEach((side) => {
+      furnitureMesh(group, new THREE.BoxGeometry(0.08, 0.34, 0.46), chairMaterial, side * 0.29, 0.48, 0);
+      furnitureMesh(group, new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), deskFrameMaterial, side * 0.23, 0.08, 0.17);
+      furnitureMesh(group, new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), deskFrameMaterial, side * 0.23, 0.08, -0.17);
+    });
+    model.add(group);
+    return group;
+  }
+
+  function addCafeTable(x, z, width = 1.2, depth = 0.56) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    furnitureMesh(group, new THREE.BoxGeometry(width, 0.07, depth), stoneTopMaterial, 0, 0.68, 0);
+    furnitureMesh(group, new THREE.CylinderGeometry(0.055, 0.07, 0.62, 10), deskFrameMaterial, 0, 0.35, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(0.58, 0.045, 0.38), deskFrameMaterial, 0, 0.04, 0);
+    model.add(group);
+    addLoungeChair(x, z - 0.66, Math.PI);
+    addLoungeChair(x, z + 0.66, 0);
+    return group;
+  }
+
+  function addCabinet(x, z, width = 1.25, rotation = 0) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    furnitureMesh(group, new THREE.BoxGeometry(width, 1.35, 0.38), cabinetMaterial, 0, 0.675, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(0.02, 1.2, 0.395), deskFrameMaterial, 0, 0.68, -0.005, false);
+    for (let i = -1; i <= 1; i += 1) {
+      furnitureMesh(group, new THREE.BoxGeometry(width * 0.88, 0.018, 0.4), deskFrameMaterial, 0, 0.36 + i * 0.35, 0, false);
+    }
+    model.add(group);
+  }
+
+  function addPrinterUnit(x, z, rotation = 0) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    furnitureMesh(group, new THREE.BoxGeometry(0.78, 0.65, 0.55), cabinetMaterial, 0, 0.325, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(0.62, 0.22, 0.46), deviceMaterial, 0, 0.76, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(0.48, 0.025, 0.32), deskMaterial, 0, 0.89, -0.04, false);
+    model.add(group);
+  }
+
+  function addDisplayStand(x, z, rotation = 0) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.08, z);
+    group.rotation.y = rotation;
+    furnitureMesh(group, new THREE.BoxGeometry(1.55, 0.82, 0.07), deviceMaterial, 0, 1.3, 0);
+    furnitureMesh(group, new THREE.CylinderGeometry(0.045, 0.055, 0.72, 10), deskFrameMaterial, 0, 0.55, 0);
+    furnitureMesh(group, new THREE.BoxGeometry(0.85, 0.06, 0.5), deskFrameMaterial, 0, 0.16, 0);
+    model.add(group);
+  }
+
+  function makeLabelTexture(text) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 196;
+    const context = canvas.getContext("2d");
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "rgba(255,255,255,0.9)";
+    context.strokeStyle = "rgba(78,84,80,0.28)";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.roundRect(12, 12, 488, 172, 22);
+    context.fill();
+    context.stroke();
+    context.fillStyle = colors.foreground;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    const [name, dimensions] = text.split("\n");
+    context.font = '500 44px "PingFang SC", "Microsoft YaHei", sans-serif';
+    context.fillText(name, 256, dimensions ? 69 : 98);
+    if (dimensions) {
+      context.fillStyle = colors.mutedForeground;
+      context.font = '400 31px "PingFang SC", "Microsoft YaHei", sans-serif';
+      context.fillText(dimensions, 256, 132);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    return texture;
+  }
+
+  function addLabel(text, x, z, scale = 2.45) {
+    const material = new THREE.SpriteMaterial({
+      map: makeLabelTexture(text),
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(x, 2.18, z);
+    sprite.scale.set(scale, scale * 0.43, 1);
+    sprite.renderOrder = 20;
+    model.add(sprite);
+    return sprite;
+  }
+
+  addBox(W + 0.6, 0.22, H + 0.6, W / 2, -0.15, H / 2, baseMaterial, false, true);
+  addFloor(0, 0, 3, TOP_H, roomMaterials[0]);
+  addFloor(3, 0, 9, TOP_H, roomMaterials[1]);
+  addFloor(9, 0, 18, TOP_H, roomMaterials[2]);
+  addFloor(18, 0, 21, TOP_H, roomMaterials[3]);
+  addFloor(21, 0, 24, TOP_H, roomMaterials[4]);
+  addFloor(24, 0, W, TOP_H, roomMaterials[5]);
+  addFloor(0, TOP_H, W, AISLE_Z, corridorMaterial);
+  addFloor(0, AISLE_Z, FINANCE_X, 12.82, roomMaterials[6]);
+  addFloor(0, 12.82, FINANCE_X, H, roomMaterials[7]);
+  addFloor(FINANCE_X, AISLE_Z, MEETING_X, H, neutralFloorMaterial);
+  addFloor(MEETING_X, AISLE_Z, W, H, roomMaterials[8]);
+
+  addWall(0, 0, W, 0, 1.9);
+  addWall(0, 0, 0, H, 1.9);
+  addWall(W, 0, W, H, 1.9);
+  addWall(0, H, 12.9, H, 1.9);
+  addWall(15.2, H, W, H, 1.9);
+
+  [3, 9, 18, 21, 24].forEach((x) => addWall(x, 0, x, TOP_H));
+
+  const topSegments = [
+    [0, 3],
+    [3, 9],
+    [9, 18],
+    [18, 21],
+    [21, 24],
+    [24, W]
+  ];
+  topSegments.forEach(([x0, x1]) => {
+    const doorWidth = 0.9;
+    const doorX = x1 - doorWidth - 0.35;
+    addGlassWall(x0, TOP_H, doorX, TOP_H);
+    addGlassWall(doorX + doorWidth, TOP_H, x1, TOP_H);
+    addDoorX(doorX + doorWidth, TOP_H, doorWidth, -1, -1, glassDoorMaterial);
+  });
+
+  addGlassWall(0, AISLE_Z, 7.65, AISLE_Z);
+  addGlassWall(8.6, AISLE_Z, 10.7, AISLE_Z);
+  addWall(10.7, AISLE_Z, 16.2, AISLE_Z, WALL_H, featureWallMaterial);
+  addBox(2.7, 1.12, 0.035, 13.45, 0.76, AISLE_Z + 0.11, featurePanelMaterial);
+  [-1.12, -0.56, 0, 0.56, 1.12].forEach((offset) => {
+    addBox(0.026, 1.24, 0.025, 13.45 + offset, 0.78, AISLE_Z + 0.135, glassFrameMaterial, false, true);
+  });
+  addReceptionDesk(14.35, 9.45, 3.05);
+  addSofa(9.72, 9.7, 2.4, -Math.PI / 2);
+  addGlassWall(19.4, AISLE_Z, W, AISLE_Z);
+  addDoorX(8.6, AISLE_Z, 0.95, -1, 1, glassDoorMaterial);
+
+  addWall(FINANCE_X, AISLE_Z, FINANCE_X, 13.35);
+  addWall(FINANCE_X, 14.3, FINANCE_X, H);
+  addDoorZ(FINANCE_X, 14.3, 0.95, -1, 1);
+  addWall(0, 12.82, FINANCE_X, 12.82);
+
+  addWall(MEETING_X, AISLE_Z, MEETING_X, 8.17);
+  addWall(MEETING_X, 9.12, MEETING_X, H);
+  addDoorZ(MEETING_X, 9.12, 0.95, -1, -1);
+
+  addDoorX(12.9, H, 1.05, 1, 1);
+  addDoorX(15.2, H, 1.05, -1, -1);
+
+  addBox(0.78, 2.05, 0.78, 13.8, 1.105, 5.0, columnMaterial);
+  addBox(0.78, 2.05, 0.78, 21.9, 1.105, 5.0, columnMaterial);
+
+  addDeskSet(1.4, 2.55, 0, 1.2, 0.6, true);
+  addCabinet(1.45, 0.38, 1.45, 0);
+
+  addDeskSet(4.55, 2.0, 0, 1.2, 0.6, false);
+  addDeskSet(7.25, 2.0, 0, 1.2, 0.6, false);
+  addAreaRug(5.95, 4.45, 3.0, 1.85);
+  addMeetingTable(5.95, 4.45, 2.15, 0.86, 2, 0, false);
+  addPrinterUnit(3.55, 5.45, 0);
+
+  [10.7, 13.5, 16.25].forEach((x) => addDeskSet(x, 1.55, 0, 1.2, 0.6, false));
+  [10.7, 13.5, 16.25].forEach((x) => addDeskSet(x, 4.15, 0, 1.2, 0.6, false));
+  addPrinterUnit(9.45, 5.45, 0);
+
+  addDeskSet(19.45, 2.45, 0, 1.2, 0.6, true);
+  addCabinet(19.45, 0.38, 1.35, 0);
+
+  addDeskSet(22.45, 2.45, 0, 1.2, 0.6, true);
+  addCabinet(22.45, 0.38, 1.35, 0);
+
+  addAreaRug(26.75, 3.25, 4.35, 2.65);
+  addMeetingTable(26.75, 3.25, 3.15, 1.15, 3, 0, true);
+  addDisplayStand(26.75, 0.45, 0);
+
+  [9.25, 11.35].forEach((z) => {
+    addDeskSet(2.25, z, -Math.PI / 2, 1.2, 0.6, false);
+    addDeskSet(6.75, z, Math.PI / 2, 1.2, 0.6, false);
+  });
+  addPrinterUnit(0.55, 9.95, Math.PI / 2);
+
+  addFridge(0.55, 14.42, 0);
+  addBreakroomCounter(2.75, 14.46, 3.5);
+  addCafeTable(5.25, 13.75, 1.2, 0.56);
+  addSofa(7.0, 14.25, 1.55, 0);
+
+  addAreaRug(25.45, 11.35, 5.25, 2.72);
+  addMeetingTable(25.45, 11.35, 4.15, 1.32, 4, 0, true);
+  addDisplayStand(28.85, 8.55, Math.PI / 2);
+
+  [
+    ["1号房间\n3.00 × 6.22m", 1.5, 3.05, 2.35],
+    ["2号房间\n6.00 × 6.22m", 6.0, 3.05, 2.45],
+    ["3号房间\n9.00 × 6.22m", 13.5, 3.05, 2.6],
+    ["4号房间\n3.00 × 6.22m", 19.5, 3.05, 2.3],
+    ["5号房间\n3.00 × 6.22m", 22.5, 3.05, 2.3],
+    ["6号房间\n5.90 × 6.22m", 26.95, 3.05, 2.45],
+    ["7号房间\n9.00 × 5.00m", 4.5, 10.3, 2.5],
+    ["8号房间\n9.00 × 2.00m", 4.5, 13.77, 2.5],
+    ["9号房间\n9.00 × 7.00m", 25.4, 11.3, 2.65]
+  ].forEach(([text, x, z, scale]) => addLabel(text, x, z, scale));
+
+  const shadowPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(W + 13, H + 13),
+    new THREE.ShadowMaterial({ color: colors.foreground, opacity: 0.12 })
+  );
+  shadowPlane.rotation.x = -Math.PI / 2;
+  shadowPlane.position.set(W / 2, -0.28, H / 2);
+  shadowPlane.receiveShadow = true;
+  scene.add(shadowPlane);
+
+  function updateSize() {
+    const width = Math.max(stage.clientWidth, 320);
+    const height = Math.max(stage.clientHeight, 380);
+    renderer.setSize(width, height, false);
+    const aspect = width / height;
+    const viewWidth = 38.5;
+    const viewHeight = Math.max(23.5, viewWidth / aspect);
+    camera.left = -viewWidth / 2;
+    camera.right = viewWidth / 2;
+    camera.top = viewHeight / 2;
+    camera.bottom = -viewHeight / 2;
+    camera.updateProjectionMatrix();
+  }
+
+  function setPressed(mode) {
+    const isoActive = mode === "iso";
+    isoButton.setAttribute("aria-pressed", String(isoActive));
+    topButton.setAttribute("aria-pressed", String(!isoActive));
+    isoButton.classList.toggle("btn-primary", isoActive);
+    topButton.classList.toggle("btn-primary", !isoActive);
+  }
+
+  function moveCamera(destination, mode) {
+    const startPosition = camera.position.clone();
+    const startTarget = controls.target.clone();
+    const startedAt = performance.now();
+    const duration = 620;
+    setPressed(mode);
+    function step(now) {
+      const t = Math.min((now - startedAt) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      camera.position.lerpVectors(startPosition, destination, eased);
+      controls.target.lerpVectors(startTarget, target, eased);
+      camera.lookAt(controls.target);
+      controls.update();
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  isoButton.addEventListener("click", () => moveCamera(isoPosition, "iso"));
+  topButton.addEventListener("click", () => moveCamera(topPosition, "top"));
+  resetButton.addEventListener("click", () => {
+    camera.zoom = 1;
+    camera.updateProjectionMatrix();
+    moveCamera(isoPosition, "iso");
+  });
+
+  downloadButton.addEventListener("click", () => {
+    renderer.render(scene, camera);
+    renderer.domElement.toBlob((blob) => {
+      if (!blob) return;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "floor-plan-3d.png";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }, "image/png");
+  });
+
+  const resizeObserver = new ResizeObserver(updateSize);
+  resizeObserver.observe(stage);
+  updateSize();
+
+  let firstFrame = true;
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+    if (firstFrame) {
+      firstFrame = false;
+      window.__floorPlan3DReady = true;
+      window.__floorPlan3D = { renderer, scene, camera, controls };
+    }
+  }
+  animate();
+</script>
+</body>
+</html>
