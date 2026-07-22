@@ -4,6 +4,7 @@ import { OrbitControls } from "https://esm.sh/three@0.180.0/examples/jsm/control
 const root = document.getElementById("floor-plan-render-20260722");
 const stage = root.querySelector(".render-stage");
 const viewButtons = Array.from(root.querySelectorAll("[data-render-view]"));
+const qualityButton = root.querySelector(".render-quality-toggle");
 const downloadButton = root.querySelector(".render-download");
 
 const W = 29.9;
@@ -28,7 +29,7 @@ function canvasTexture(width, height, draw, repeatX = 1, repeatY = 1) {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(repeatX, repeatY);
-  texture.anisotropy = 2;
+  texture.anisotropy = 4;
   return texture;
 }
 
@@ -40,7 +41,7 @@ function random(seed) {
   };
 }
 
-const marbleTexture = canvasTexture(512, 512, (ctx, width, height) => {
+const marbleTexture = canvasTexture(1024, 1024, (ctx, width, height) => {
   const rand = random(18);
   ctx.fillStyle = "#f8f4ed";
   ctx.fillRect(0, 0, width, height);
@@ -56,7 +57,7 @@ const marbleTexture = canvasTexture(512, 512, (ctx, width, height) => {
   }
 }, 5, 3);
 
-const carpetTexture = canvasTexture(512, 256, (ctx, width, height) => {
+const carpetTexture = canvasTexture(1024, 512, (ctx, width, height) => {
   ctx.fillStyle = "#eee9df";
   ctx.fillRect(0, 0, width, height);
   for (let y = 22; y < height; y += 34) {
@@ -69,7 +70,7 @@ const carpetTexture = canvasTexture(512, 256, (ctx, width, height) => {
   }
 }, 2, 1);
 
-const officeCarpetTexture = canvasTexture(512, 512, (ctx, width, height) => {
+const officeCarpetTexture = canvasTexture(1024, 1024, (ctx, width, height) => {
   const rand = random(44);
   ctx.fillStyle = "#8e9292";
   ctx.fillRect(0, 0, width, height);
@@ -98,7 +99,7 @@ const officeCarpetTexture = canvasTexture(512, 512, (ctx, width, height) => {
   }
 }, 2.6, 2.6);
 
-const ceilingTileTexture = canvasTexture(256, 256, (ctx, width, height) => {
+const ceilingTileTexture = canvasTexture(512, 512, (ctx, width, height) => {
   ctx.fillStyle = "#f5f4f1";
   ctx.fillRect(0, 0, width, height);
   ctx.strokeStyle = "rgba(82, 82, 78, 0.22)";
@@ -124,7 +125,7 @@ const ceilingTileTexture = canvasTexture(256, 256, (ctx, width, height) => {
 }, 3, 3);
 
 function artTexture(base, accent) {
-  return canvasTexture(256, 256, (ctx, width, height) => {
+  return canvasTexture(512, 512, (ctx, width, height) => {
     ctx.fillStyle = "#f6f0e8";
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = base;
@@ -149,13 +150,19 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color("#f2f0eb");
 scene.fog = new THREE.Fog("#f2f0eb", 40, 72);
 
+let renderQuality = localStorage.getItem("office-render-quality") === "fast" ? "fast" : "crisp";
+function renderPixelRatio() {
+  if (renderQuality === "fast") return 1;
+  return Math.min(window.devicePixelRatio || 1, 2);
+}
+
 const renderer = new THREE.WebGLRenderer({
-  antialias: false,
+  antialias: true,
   alpha: false,
   preserveDrawingBuffer: false,
   powerPreference: "high-performance"
 });
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(renderPixelRatio());
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -663,27 +670,28 @@ function addPlanter(x, z, width = 0.92, rotation = 0) {
 
 function labelTexture(name, dimensions) {
   const canvas = document.createElement("canvas");
-  canvas.width = 384;
-  canvas.height = 148;
+  canvas.width = 768;
+  canvas.height = 296;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.strokeStyle = "rgba(98, 91, 82, 0.25)";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.roundRect(8, 8, 368, 132, 16);
+  ctx.roundRect(16, 16, 736, 264, 32);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#24221f";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = '600 34px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText(name, 192, 52);
+  ctx.font = '600 68px "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.fillText(name, 384, 104);
   ctx.fillStyle = "#6d675f";
-  ctx.font = '400 24px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText(dimensions, 192, 100);
+  ctx.font = '400 48px "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.fillText(dimensions, 384, 200);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   return texture;
 }
 
@@ -893,6 +901,22 @@ let cameraAnimationFrame = 0;
 let renderUntil = 0;
 let firstFrame = true;
 
+function setQualityButton() {
+  if (!qualityButton) return;
+  const crisp = renderQuality === "crisp";
+  qualityButton.setAttribute("aria-pressed", String(crisp));
+  qualityButton.classList.toggle("btn-primary", crisp);
+  const label = qualityButton.querySelector("span");
+  if (label) label.textContent = crisp ? "清晰" : "流畅";
+}
+
+function applyRenderQuality() {
+  renderer.setPixelRatio(renderPixelRatio());
+  setQualityButton();
+  resize();
+  requestRender(420);
+}
+
 function resize() {
   const width = Math.max(stage.clientWidth, 320);
   const height = Math.max(stage.clientHeight, 420);
@@ -946,6 +970,11 @@ function moveCamera(view) {
 viewButtons.forEach((button) => {
   button.addEventListener("click", () => moveCamera(button.dataset.renderView));
 });
+qualityButton?.addEventListener("click", () => {
+  renderQuality = renderQuality === "crisp" ? "fast" : "crisp";
+  localStorage.setItem("office-render-quality", renderQuality);
+  applyRenderQuality();
+});
 downloadButton.addEventListener("click", () => {
   renderScene();
   const link = document.createElement("a");
@@ -956,6 +985,7 @@ downloadButton.addEventListener("click", () => {
 
 new ResizeObserver(resize).observe(stage);
 window.addEventListener("resize", resize);
+setQualityButton();
 resize();
 
 function isPanelVisible() {
