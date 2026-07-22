@@ -310,6 +310,17 @@
   (() => {
     const tabs = Array.from(document.querySelectorAll("[data-view]"));
     const panels = Array.from(document.querySelectorAll("[data-panel]"));
+    let renderViewModulePromise = null;
+
+    function ensureRenderView() {
+      if (!renderViewModulePromise) {
+        renderViewModulePromise = import("./render-view.js").catch((error) => {
+          renderViewModulePromise = null;
+          console.error("Failed to load 3D render view.", error);
+        });
+      }
+      return renderViewModulePromise;
+    }
 
     function setView(view, updateHash = true) {
       const selectedView = ["2d", "3d", "render"].includes(view) ? view : "3d";
@@ -328,6 +339,12 @@
       if (updateHash) {
         history.replaceState(null, "", `#${selectedView}`);
       }
+      if (selectedView === "render") {
+        ensureRenderView();
+      }
+      window.dispatchEvent(new CustomEvent("floor-plan:viewchange", {
+        detail: { view: selectedView }
+      }));
       requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
     }
 
@@ -397,8 +414,6 @@
     }
   }
 </style>
-
-<script type="module" src="render-view.js"></script>
 
 <style>
   #floor-plan-3d-20260721 {
@@ -490,14 +505,16 @@
   scene.background = new THREE.Color(colors.background);
   scene.fog = new THREE.Fog(colors.background, 48, 88);
 
+  const devicePixelRatio = window.devicePixelRatio || 1;
   const renderer = new THREE.WebGLRenderer({
-    antialias: true,
+    antialias: devicePixelRatio <= 1.25,
     alpha: false,
-    preserveDrawingBuffer: true
+    preserveDrawingBuffer: true,
+    powerPreference: "high-performance"
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.02;
@@ -527,7 +544,7 @@
   const sun = new THREE.DirectionalLight("#fff4df", 4.2);
   sun.position.set(-18, 35, 20);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.left = -35;
   sun.shadow.camera.right = 35;
   sun.shadow.camera.top = 25;
@@ -1135,6 +1152,11 @@
   shadowPlane.receiveShadow = true;
   scene.add(shadowPlane);
 
+  let animationFrame = 0;
+  let cameraAnimationFrame = 0;
+  let renderUntil = 0;
+  let firstFrame = true;
+
   function updateSize() {
     const width = Math.max(stage.clientWidth, 320);
     const height = Math.max(stage.clientHeight, 380);
@@ -1147,6 +1169,7 @@
     camera.top = viewHeight / 2;
     camera.bottom = -viewHeight / 2;
     camera.updateProjectionMatrix();
+    requestRender(260);
   }
 
   function setPressed(mode) {
@@ -1158,21 +1181,34 @@
   }
 
   function moveCamera(destination, mode) {
+    if (cameraAnimationFrame) {
+      cancelAnimationFrame(cameraAnimationFrame);
+      cameraAnimationFrame = 0;
+    }
     const startPosition = camera.position.clone();
     const startTarget = controls.target.clone();
     const startedAt = performance.now();
-    const duration = 620;
+    const duration = 480;
     setPressed(mode);
     function step(now) {
+      if (!isPanelVisible()) {
+        cameraAnimationFrame = 0;
+        return;
+      }
       const t = Math.min((now - startedAt) / duration, 1);
       const eased = 1 - Math.pow(1 - t, 3);
       camera.position.lerpVectors(startPosition, destination, eased);
       controls.target.lerpVectors(startTarget, target, eased);
       camera.lookAt(controls.target);
-      controls.update();
-      if (t < 1) requestAnimationFrame(step);
+      renderScene();
+      if (t < 1) {
+        cameraAnimationFrame = requestAnimationFrame(step);
+      } else {
+        cameraAnimationFrame = 0;
+        requestRender(160);
+      }
     }
-    requestAnimationFrame(step);
+    cameraAnimationFrame = requestAnimationFrame(step);
   }
 
   isoButton.addEventListener("click", () => moveCamera(isoPosition, "iso"));
@@ -1184,7 +1220,7 @@
   });
 
   downloadButton.addEventListener("click", () => {
-    renderer.render(scene, camera);
+    renderScene();
     renderer.domElement.toBlob((blob) => {
       if (!blob) return;
       const link = document.createElement("a");
@@ -1199,18 +1235,58 @@
   resizeObserver.observe(stage);
   updateSize();
 
-  let firstFrame = true;
-  function animate() {
-    requestAnimationFrame(animate);
+  function isPanelVisible() {
+    return !root.closest("[data-panel]")?.hidden;
+  }
+
+  function renderScene() {
     controls.update();
     renderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
       window.__floorPlan3DReady = true;
-      window.__floorPlan3D = { renderer, scene, camera, controls };
+      window.__floorPlan3D = { renderer, scene, camera, controls, requestRender };
     }
   }
-  animate();
+
+  function animate(now) {
+    animationFrame = 0;
+    if (!isPanelVisible()) return;
+    renderScene();
+    if (now < renderUntil) {
+      animationFrame = requestAnimationFrame(animate);
+    }
+  }
+
+  function requestRender(duration = 220) {
+    renderUntil = Math.max(renderUntil, performance.now() + duration);
+    if (!animationFrame && isPanelVisible()) {
+      animationFrame = requestAnimationFrame(animate);
+    }
+  }
+
+  controls.addEventListener("change", () => requestRender(260));
+  controls.addEventListener("start", () => requestRender(900));
+  controls.addEventListener("end", () => requestRender(500));
+  window.addEventListener("floor-plan:viewchange", (event) => {
+    if (event.detail?.view === "3d") {
+      updateSize();
+      requestRender(600);
+    } else {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+      }
+      if (cameraAnimationFrame) {
+        cancelAnimationFrame(cameraAnimationFrame);
+        cameraAnimationFrame = 0;
+      }
+    }
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (isPanelVisible()) requestRender(500);
+  });
+  requestRender(600);
 </script>
 </body>
 </html>
