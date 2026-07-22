@@ -419,13 +419,17 @@
   scene.background = new THREE.Color(colors.background);
   scene.fog = new THREE.Fog(colors.background, 48, 88);
 
+  function renderPixelRatio() {
+    return Math.min(window.devicePixelRatio || 1, 2);
+  }
+
   const renderer = new THREE.WebGLRenderer({
-    antialias: false,
+    antialias: true,
     alpha: false,
     preserveDrawingBuffer: false,
     powerPreference: "high-performance"
   });
-  renderer.setPixelRatio(1);
+  renderer.setPixelRatio(renderPixelRatio());
   renderer.shadowMap.enabled = false;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1070,6 +1074,7 @@
   function updateSize() {
     const width = Math.max(stage.clientWidth, 320);
     const height = Math.max(stage.clientHeight, 380);
+    renderer.setPixelRatio(renderPixelRatio());
     renderer.setSize(width, height, false);
     const aspect = width / height;
     const viewWidth = 38.5;
